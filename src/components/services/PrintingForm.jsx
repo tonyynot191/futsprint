@@ -1,7 +1,7 @@
 // src/components/services/PrintingForm.jsx
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Upload, FileText, Calculator, X, Loader2, AlertCircle, MapPin, Plus, Store,
+  Upload, FileText, Calculator, X, Loader2, AlertCircle, MapPin, Plus, Store, Camera,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -13,11 +13,15 @@ import {
   FRIENDLY_TYPE_LIST,
 } from '../../config/pricing';
 import { MAIN_CAMPUS, PARTNER_SHOPS } from '../../config/locations';
+import { compressImage, isTouchDevice } from '../../lib/imageUtils';
 
 export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
   const { isAuthenticated } = useAuth();
   const { createPrintOrder } = useOrders();
+
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const touchDevice = isTouchDevice();
 
   const [files, setFiles] = useState([]);
   const [paperSize, setPaperSize] = useState('A4');
@@ -31,6 +35,13 @@ export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const totalBytes = useMemo(
     () => files.reduce((sum, f) => sum + (f.size || 0), 0),
@@ -44,30 +55,49 @@ export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
     [paperSize, printType, sides, copies, estimatedPages, finishing]
   );
 
-  const addFiles = (incoming) => {
+  const addFiles = async (incoming) => {
     setErrorMsg('');
     const list = Array.from(incoming || []);
     if (!list.length) return;
 
     const next = [...files];
-    for (const f of list) {
+    const skipped = [];
+
+    for (const raw of list) {
       if (next.length >= MAX_FILES_PER_ORDER) {
         setErrorMsg(`You can upload up to ${MAX_FILES_PER_ORDER} files per order.`);
         break;
       }
-      if (f.size > MAX_FILE_BYTES) {
+      if (raw.size > MAX_FILE_BYTES * 1.2) {
         setErrorMsg(
-          `"${f.name}" is too large. Maximum is ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB per file.`
+          `"${raw.name}" is too large. Maximum is ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB per file.`
         );
         continue;
       }
-      // Dedup by name + size
+
+      const { file: f, compressed } = await compressImage(raw);
+      if (compressed) skipped.push(raw.name);
+
+      if (f.size > MAX_FILE_BYTES) {
+        setErrorMsg(
+          `"${f.name}" is still too large after compression. Maximum is ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB per file.`
+        );
+        continue;
+      }
       const dup = next.some((x) => x.name === f.name && x.size === f.size);
       if (dup) continue;
       next.push(f);
     }
+
     setFiles(next);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+
+    if (skipped.length > 0) {
+      setNotice(
+        `${skipped.length} photo${skipped.length > 1 ? 's were' : ' was'} compressed to speed up upload.`
+      );
+    }
   };
 
   const removeFile = (index) => {
@@ -144,6 +174,13 @@ export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
         </div>
       )}
 
+      {notice && (
+        <div className="mb-4 flex items-start gap-2 text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2">
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <span>{notice}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ---------- Files ---------- */}
         <div>
@@ -167,6 +204,18 @@ export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               aria-label="Upload documents"
             />
+            {touchDevice && (
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={(e) => addFiles(e.target.files)}
+                className="hidden"
+                aria-label="Take photo"
+              />
+            )}
             <div className="space-y-2 pointer-events-none">
               <div className="w-10 h-10 bg-indigo-50 text-indigo-900 rounded-xl flex items-center justify-center mx-auto">
                 <Upload size={20} />
@@ -178,9 +227,20 @@ export default function PrintingForm({ onOrderPlaced, onRequireAuth }) {
                 {FRIENDLY_TYPE_LIST}
                 <br />
                 Up to {MAX_FILES_PER_ORDER} files • {Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB each
+                {touchDevice && ' • or use the camera below'}
               </p>
             </div>
           </div>
+
+          {touchDevice && (
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-indigo-900 hover:text-indigo-900 transition"
+            >
+              <Camera size={16} /> Take photo with camera
+            </button>
+          )}
 
           {files.length > 0 && (
             <ul className="mt-3 space-y-2">
