@@ -24,32 +24,8 @@ function AppShell() {
   const [selectedService, setSelectedService] = useState('printing');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [flashMsg, setFlashMsg] = useState('');
 
-  // Phase 2B: still mock orders. Real orders arrive in Phase 5.
-  const [orders] = useState([
-    {
-      id: 'FUT-8921',
-      service: 'Digital Printing',
-      details: 'GST111 Lecture Notes (15 Pages, B&W, Spiral)',
-      status: 'Ready for Pickup',
-      location: 'GK Campus Hub (Shop 10)',
-      cost: '₦950',
-      date: 'Today, 8:30 AM',
-      active: true,
-    },
-    {
-      id: 'FUT-8804',
-      service: 'Book Drop-Off & Copy',
-      details: 'PHY101 Textbook (200 Pages, Hardcover Binding)',
-      status: 'Processing',
-      location: 'Bosso Campus Stand',
-      cost: '₦6,500',
-      date: 'Yesterday, 2:15 PM',
-      active: true,
-    },
-  ]);
-
-  // Shape the user object the same way the existing UI expects it.
   const uiUser = {
     name: profile?.full_name || user?.email?.split('@')[0] || 'Student',
     email: profile?.email || user?.email || '',
@@ -65,6 +41,12 @@ function AppShell() {
     setSelectedService(serviceKey);
   };
 
+  const handleOrderPlaced = (order) => {
+    setFlashMsg(`Order ${order.order_number} placed successfully.`);
+    setActiveTab('dashboard');
+    setTimeout(() => setFlashMsg(''), 5000);
+  };
+
   const handleLogout = async () => {
     await signOut();
     setActiveTab('services');
@@ -75,7 +57,9 @@ function AppShell() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-indigo-950 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Loading FUTSPrint…</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Loading FUTSPrint…
+          </p>
         </div>
       </div>
     );
@@ -93,6 +77,12 @@ function AppShell() {
       />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+        {flashMsg && (
+          <div className="max-w-3xl mx-auto mb-4 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3">
+            {flashMsg}
+          </div>
+        )}
+
         {activeTab === 'services' && (
           <div>
             <div className="max-w-3xl mx-auto mb-6 flex space-x-1 sm:space-x-2 p-1 bg-slate-200/60 rounded-2xl">
@@ -108,28 +98,40 @@ function AppShell() {
               </button>
               <button
                 onClick={() => setSelectedService('photocopy')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition truncate ${
                   selectedService === 'photocopy'
                     ? 'bg-white text-indigo-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Book Drop-Off & Copy
+                Photocopy
               </button>
             </div>
 
-            {selectedService === 'printing' && <PrintingForm />}
-            {selectedService === 'photocopy' && <PhotocopyForm />}
+            {selectedService === 'printing' && (
+              <PrintingForm
+                onOrderPlaced={handleOrderPlaced}
+                onRequireAuth={() => setIsAuthOpen(true)}
+              />
+            )}
+            {selectedService === 'photocopy' && (
+              <PhotocopyForm
+                onOrderPlaced={handleOrderPlaced}
+                onRequireAuth={() => setIsAuthOpen(true)}
+              />
+            )}
           </div>
         )}
 
         {activeTab === 'dashboard' && (
           isAuthenticated ? (
-            <Dashboard user={uiUser} orders={orders} />
+            <Dashboard user={uiUser} />
           ) : (
             <div className="max-w-md mx-auto text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sign in Required</h2>
-              <p className="text-xs text-slate-500 mb-6">Please log in to your student account to view active print jobs.</p>
+              <p className="text-xs text-slate-500 mb-6">
+                Please log in to your student account to view active print jobs.
+              </p>
               <button
                 onClick={() => setIsAuthOpen(true)}
                 className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition"
@@ -146,7 +148,9 @@ function AppShell() {
           ) : (
             <div className="max-w-md mx-auto text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sign in Required</h2>
-              <p className="text-xs text-slate-500 mb-6">Log in to manage your campus preferences and profile details.</p>
+              <p className="text-xs text-slate-500 mb-6">
+                Log in to manage your campus preferences and profile details.
+              </p>
               <button
                 onClick={() => setIsAuthOpen(true)}
                 className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition"
