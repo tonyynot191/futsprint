@@ -1,12 +1,18 @@
+// src/components/account/AccountSettings.jsx
 import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Bell, ShieldCheck, LogOut, Check } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Bell, LogOut, Check } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-export default function AccountSettings({ user, setUser, onLogout }) {
+export default function AccountSettings({ onLogout }) {
+  const { profile, user, updateProfile } = useAuth();
+
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    campus: user?.campus || 'GK Campus (Minna)',
+    full_name: profile?.full_name || '',
+    email: profile?.email || user?.email || '',
+    phone: profile?.phone || '',
+    campus: profile?.campus || 'GK Campus (Minna)',
+    matric_number: profile?.matric_number || '',
+    department: profile?.department || '',
   });
 
   const [notifications, setNotifications] = useState({
@@ -14,21 +20,33 @@ export default function AccountSettings({ user, setUser, onLogout }) {
     emailAlerts: true,
   });
 
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setUser((prev) => ({
-      ...prev,
-      ...formData,
-    }));
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setErrorMsg('');
+    setSaving(true);
+    try {
+      await updateProfile({
+        full_name: formData.full_name.trim(),
+        phone: formData.phone.trim(),
+        campus: formData.campus,
+        matric_number: formData.matric_number.trim(),
+        department: formData.department.trim(),
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header Banner */}
       <div className="bg-indigo-950 text-white rounded-3xl p-6 md:p-8 shadow-md flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black">Account Settings</h2>
@@ -44,9 +62,13 @@ export default function AccountSettings({ user, setUser, onLogout }) {
         </button>
       </div>
 
-      {/* Main Form */}
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Personal Details */}
+        {errorMsg && (
+          <div className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+            {errorMsg}
+          </div>
+        )}
+
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <User size={14} /> Personal Information
@@ -62,8 +84,8 @@ export default function AccountSettings({ user, setUser, onLogout }) {
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-900"
                 />
               </div>
@@ -80,6 +102,38 @@ export default function AccountSettings({ user, setUser, onLogout }) {
                   disabled
                   value={formData.email}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-xs font-semibold cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Matric Number
+              </label>
+              <div className="relative">
+                <User size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  required
+                  value={formData.matric_number}
+                  onChange={(e) => setFormData({ ...formData, matric_number: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Department
+              </label>
+              <div className="relative">
+                <MapPin size={16} className="absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  required
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-900"
                 />
               </div>
             </div>
@@ -119,7 +173,6 @@ export default function AccountSettings({ user, setUser, onLogout }) {
           </div>
         </div>
 
-        {/* Notifications Settings */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <Bell size={14} /> Print Status Alerts
@@ -154,21 +207,21 @@ export default function AccountSettings({ user, setUser, onLogout }) {
           </div>
         </div>
 
-        {/* Save Button Bar */}
         <div className="flex items-center justify-between pt-2">
           {savedSuccess ? (
             <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
               <Check size={16} /> Changes saved successfully!
             </span>
           ) : (
-            <span className="text-xs text-slate-400">All information is kept securely within FUTSprint.</span>
+            <span className="text-xs text-slate-400">All information is kept securely within FUTSPrint.</span>
           )}
 
           <button
             type="submit"
-            className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition shadow-sm"
+            disabled={saving}
+            className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Save Profile
+            {saving ? 'Saving…' : 'Save Profile'}
           </button>
         </div>
       </form>

@@ -1,23 +1,38 @@
+// src/components/auth/SignIn.jsx
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-export default function SignIn({ onLogin }) {
+export default function SignIn({ onSuccess }) {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onLogin({
-      name: email.split('@')[0] || 'Student',
-      email,
-      phone: '09045656852',
-      campus: 'GK Campus (Minna)',
-    });
+    setErrorMsg('');
+    setSubmitting(true);
+    try {
+      await signIn({ email, password });
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      setErrorMsg(err.message || 'Sign in failed. Check your email and password.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {errorMsg && (
+        <div className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+          {errorMsg}
+        </div>
+      )}
+
       <div>
         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
           Email Address
@@ -61,9 +76,10 @@ export default function SignIn({ onLogin }) {
 
       <button
         type="submit"
-        className="w-full py-3 bg-indigo-950 text-white rounded-xl text-xs font-extrabold hover:bg-indigo-900 transition shadow-md mt-2"
+        disabled={submitting}
+        className="w-full py-3 bg-indigo-950 text-white rounded-xl text-xs font-extrabold hover:bg-indigo-900 transition shadow-md mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Sign In
+        {submitting ? 'Signing in…' : 'Sign In'}
       </button>
     </form>
   );

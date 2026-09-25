@@ -41,7 +41,8 @@ export default function GuidedAssistantModal({ isOpen, onClose, onSelectService 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
+  <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in duration-200">
         
         {/* Header */}
@@ -119,6 +120,7 @@ export default function GuidedAssistantModal({ isOpen, onClose, onSelectService 
           </button>
         </div>
 
+              </div>
       </div>
     </div>
   );

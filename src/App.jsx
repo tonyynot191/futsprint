@@ -1,4 +1,6 @@
+// src/App.jsx
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/common/Header';
 import GuidedAssistantModal from './components/assistant/GuidedAssistantModal';
 import PrintingForm from './components/services/PrintingForm.jsx';
@@ -8,21 +10,23 @@ import AccountSettings from './components/account/AccountSettings.jsx';
 import AuthModal from './components/auth/AuthModal.jsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard'); 
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+
+function AppShell() {
+  const { user, profile, loading, isAuthenticated, signOut } = useAuth();
+
+  const [activeTab, setActiveTab] = useState('services');
   const [selectedService, setSelectedService] = useState('printing');
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [user, setUser] = useState({
-    name: 'Victoria',
-    email: 'victoriaab0991@gmail.com',
-    phone: '09045656852',
-    campus: 'GK Campus (Minna)'
-  });
 
-  // Centralized Orders State
-  const [orders, setOrders] = useState([
+  // Phase 2B: still mock orders. Real orders arrive in Phase 5.
+  const [orders] = useState([
     {
       id: 'FUT-8921',
       service: 'Digital Printing',
@@ -42,23 +46,18 @@ export default function App() {
       cost: '₦6,500',
       date: 'Yesterday, 2:15 PM',
       active: true,
-    }
+    },
   ]);
 
-  const handleCreateOrder = (newOrderData) => {
-    const newOrder = {
-      id: `FUT-${Math.floor(1000 + Math.random() * 9000)}`,
-      service: newOrderData.service || 'Digital Printing',
-      details: newOrderData.details || 'Document Print Job',
-      status: 'Processing',
-      location: user?.campus || 'GK Campus Hub',
-      cost: newOrderData.cost || '₦300',
-      date: 'Just now',
-      active: true,
-    };
-
-    setOrders([newOrder, ...orders]);
-    setActiveTab('dashboard');
+  // Shape the user object the same way the existing UI expects it.
+  const uiUser = {
+    name: profile?.full_name || user?.email?.split('@')[0] || 'Student',
+    email: profile?.email || user?.email || '',
+    phone: profile?.phone || '',
+    campus: profile?.campus || 'GK Campus (Minna)',
+    matricNumber: profile?.matric_number || '',
+    department: profile?.department || '',
+    role: profile?.role || 'student',
   };
 
   const handleSelectServiceFromAssistant = (serviceKey) => {
@@ -66,35 +65,40 @@ export default function App() {
     setSelectedService(serviceKey);
   };
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-    setIsAuthOpen(false);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    await signOut();
     setActiveTab('services');
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-indigo-950 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Loading FUTSPrint…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      <Header 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onOpenAssistant={() => setIsAssistantOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         isAuthenticated={isAuthenticated}
-        user={user}
+        user={uiUser}
       />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
         {activeTab === 'services' && (
           <div>
-            <div className="max-w-3xl mx-auto mb-6 flex space-x-2 p-1 bg-slate-200/60 rounded-2xl">
+            <div className="max-w-3xl mx-auto mb-6 flex space-x-1 sm:space-x-2 p-1 bg-slate-200/60 rounded-2xl">
               <button
                 onClick={() => setSelectedService('printing')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition truncate ${
                   selectedService === 'printing'
                     ? 'bg-white text-indigo-950 shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
@@ -114,23 +118,19 @@ export default function App() {
               </button>
             </div>
 
-            {selectedService === 'printing' && (
-              <PrintingForm onSubmitOrder={handleCreateOrder} />
-            )}
-            {selectedService === 'photocopy' && (
-              <PhotocopyForm onSubmitOrder={handleCreateOrder} />
-            )}
+            {selectedService === 'printing' && <PrintingForm />}
+            {selectedService === 'photocopy' && <PhotocopyForm />}
           </div>
         )}
 
         {activeTab === 'dashboard' && (
           isAuthenticated ? (
-            <Dashboard user={user} orders={orders} />
+            <Dashboard user={uiUser} orders={orders} />
           ) : (
             <div className="max-w-md mx-auto text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sign in Required</h2>
               <p className="text-xs text-slate-500 mb-6">Please log in to your student account to view active print jobs.</p>
-              <button 
+              <button
                 onClick={() => setIsAuthOpen(true)}
                 className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition"
               >
@@ -142,12 +142,12 @@ export default function App() {
 
         {activeTab === 'account' && (
           isAuthenticated ? (
-            <AccountSettings user={user} setUser={setUser} onLogout={handleLogout} />
+            <AccountSettings onLogout={handleLogout} />
           ) : (
             <div className="max-w-md mx-auto text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sign in Required</h2>
               <p className="text-xs text-slate-500 mb-6">Log in to manage your campus preferences and profile details.</p>
-              <button 
+              <button
                 onClick={() => setIsAuthOpen(true)}
                 className="px-6 py-2.5 bg-indigo-950 text-white rounded-xl text-xs font-bold hover:bg-indigo-900 transition"
               >
@@ -158,16 +158,15 @@ export default function App() {
         )}
       </main>
 
-      <GuidedAssistantModal 
+      <GuidedAssistantModal
         isOpen={isAssistantOpen}
         onClose={() => setIsAssistantOpen(false)}
         onSelectService={handleSelectServiceFromAssistant}
       />
 
-      <AuthModal 
+      <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onLogin={handleLogin}
       />
     </div>
   );
